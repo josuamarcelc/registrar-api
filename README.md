@@ -6,6 +6,11 @@ A unified PHP library for managing domains across multiple registrars with a **s
 - GoDaddy
 - Namecheap
 - Dynadot
+- ....
+  
+Provides a consistent interface for common operations like domain availability checks, registration, renewal, transfer, and DNS record management.  
+Easily extendable via adapter classes to support additional registrars with minimal code changes.
+
 
 > Drop-in architecture: add your own registrar by creating one class in `src/adapters/`.
 
@@ -237,5 +242,218 @@ You can also wrap calls in try/catch if you layer exceptions in your project.
 
 ---
 
+## Quick Start
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+use RegistrarAPI\RegistrarAPI;
+
+// Pick your registrar by brand string (case-insensitive):
+// 'namesilo', 'godaddy', 'namecheap', 'dynadot'
+$api = RegistrarAPI::make('namesilo', [
+    'api_key' => 'YOUR_NAMESILO_API_KEY'
+]);
+
+// Check availability for one or more domains
+$result = $api->checkAvailability(['example.com', 'mybrand.io']);
+print_r($result);
+
+// Set nameservers (works the same across all adapters)
+$api->setNameServers('example.com', ['ns1.host.com', 'ns2.host.com']);
+```
+
+---
+
+## Credentials per Adapter
+
+Each adapter accepts a config array. The keys below are the **minimum** you usually need.
+
+### NameSilo
+```php
+$api = RegistrarAPI::make('namesilo', [
+  'api_key' => 'YOUR_KEY'
+]);
+```
+
+### GoDaddy
+```php
+$api = RegistrarAPI::make('godaddy', [
+  'api_key'    => 'KEY',
+  'api_secret' => 'SECRET',
+  // optional: 'base' => 'https://api.godaddy.com/v1'  // defaults to production
+]);
+```
+
+### Namecheap
+```php
+$api = RegistrarAPI::make('namecheap', [
+  'api_user'  => 'USERNAME',
+  'api_key'   => 'KEY',
+  'client_ip' => 'SERVER_PUBLIC_IP',
+  // optional: 'base' => 'https://api.namecheap.com/xml.response'
+]);
+```
+
+### Dynadot
+```php
+$api = RegistrarAPI::make('dynadot', [
+  'api_key' => 'KEY',
+  // optional: 'base' => 'https://api.dynadot.com/api3.json'
+]);
+```
+
+---
+
+## Common Operations (Unified Shape)
+
+All adapters implement these methods (see `src/Core/BaseAdapter.php`). Return values are normalized as associative arrays so you can handle responses consistently.
+
+```php
+// Availability
+$api->checkAvailability(['example.com']); 
+
+// Purchase / Lifecycle
+$api->registerDomain('example.com', [
+  'years' => 1,
+  'privacy' => true,
+  'auto_renew' => true,
+  // 'registrant' or adapter-specific contact fields (see adapter docs)
+]);
+
+$api->renewDomain('example.com', 1);
+$api->transferDomain('example.com', ['auth_code' => 'EPP']);
+$api->getDomain('example.com');
+
+// DNS Records
+$api->getDNS('example.com');
+
+$api->setDNS('example.com', [
+  ['type'=>'A','host'=>'@','value'=>'203.0.113.10','ttl'=>600],
+  ['type'=>'CNAME','host'=>'www','value'=>'@','ttl'=>600],
+]);
+
+$api->addDNS('example.com', ['type'=>'TXT','host'=>'@','value'=>'v=spf1 -all','ttl'=>300]);
+$api->delDNS('example.com', ['type'=>'TXT','host'=>'@']); 
+
+// Nameservers
+$api->setNameServers('example.com', ['ns1.host.com','ns2.host.com']);
+```
+
+> ⚠️ **Contacts & Required Fields** differ slightly per registrar.
+
+---
+
+## Full Tutorials per Adapter
+
+### NameSilo – Complete Flow
+```php
+use RegistrarAPI\RegistrarAPI;
+
+$api = RegistrarAPI::make('namesilo', ['api_key' => 'KEY']);
+
+// 1. Check availability
+$check = $api->checkAvailability(['newdomain123.com']);
+if (!empty($check['available'])) {
+
+    // 2. Register
+    $api->registerDomain('newdomain123.com', [
+      'years' => 1,
+      'privacy' => true,
+      'auto_renew' => false,
+      'registrant' => [
+        'first_name' => 'Jane',
+        'last_name'  => 'Doe',
+        'email'      => 'jane@example.com',
+        'phone'      => '+1.5555555555',
+        'address'    => '123 Street',
+        'city'       => 'LA',
+        'state'      => 'CA',
+        'zip'        => '90001',
+        'country'    => 'US'
+      ]
+    ]);
+
+    // 3. Set nameservers
+    $api->setNameServers('newdomain123.com', ['ns1.custom.com','ns2.custom.com']);
+
+    // 4. Add DNS
+    $api->addDNS('newdomain123.com', ['type'=>'A','host'=>'@','value'=>'203.0.113.55','ttl'=>600]);
+}
+```
+
+### GoDaddy – Complete Flow
+```php
+$api = RegistrarAPI::make('godaddy', ['api_key'=>'KEY','api_secret'=>'SECRET']);
+
+$check = $api->checkAvailability(['newbrand.io']);
+if (!empty($check['available'])) {
+    $api->registerDomain('newbrand.io', [
+        'years' => 1,
+        'privacy' => true
+    ]);
+    $api->setDNS('newbrand.io', [
+      ['type'=>'A','host'=>'@','value'=>'198.51.100.20','ttl'=>600],
+      ['type'=>'CNAME','host'=>'www','value'=>'@','ttl'=>600],
+    ]);
+}
+```
+
+### Namecheap – Complete Flow
+```php
+$api = RegistrarAPI::make('namecheap', [
+    'api_user'=>'USER',
+    'api_key'=>'KEY',
+    'client_ip'=>'203.0.113.22'
+]);
+
+$check = $api->checkAvailability(['coolbrand.net']);
+if (!empty($check['available'])) {
+    $api->registerDomain('coolbrand.net', [
+        'years' => 1,
+        'privacy' => true
+    ]);
+    $api->setNameServers('coolbrand.net', ['ns1.customdns.com','ns2.customdns.com']);
+}
+```
+
+### Dynadot – Complete Flow
+```php
+$api = RegistrarAPI::make('dynadot', ['api_key'=>'KEY']);
+
+$check = $api->checkAvailability(['mynew.io']);
+if (!empty($check['available'])) {
+    $api->registerDomain('mynew.io', ['years'=>1,'privacy'=>true]);
+    $api->setDNS('mynew.io', [
+      ['type'=>'A','host'=>'@','value'=>'192.0.2.123','ttl'=>600],
+      ['type'=>'TXT','host'=>'@','value'=>'v=spf1 -all','ttl'=>300],
+    ]);
+}
+```
+
+---
+
+## Adding a New Registrar
+
+1. Create `src/adapters/{Brand}.php`
+2. Extend `BaseAdapter` and implement abstract methods
+3. Example:
+
+```php
+namespace RegistrarAPI\Adapters;
+
+use RegistrarAPI\Core\BaseAdapter;
+
+class MyRegistrar extends BaseAdapter {
+  protected string $brand = 'myregistrar';
+  public function checkAvailability(array $domains): array { /* ... */ }
+  // ... implement all abstract methods ...
+}
+```
+
+---
+
 ## License
-MIT © josuamarcelc
+MIT ©  [josuamarcelc]: <https://josuamarcelc.com/>
+
