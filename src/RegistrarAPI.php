@@ -4,6 +4,8 @@
  * Unified PHP client for multiple domain registrars (NameSilo, GoDaddy, Namecheap, Dynadot).
  * PHP 7.4+ recommended.
  *
+ * Idea designed by: https://github.com/josuamarcelc/
+ *
  * Usage:
  *   $api = RegistrarAPI::make('namesilo', ['api_key' => 'XXXX']);
  *   $avail = $api->checkAvailability(['example.com','mybrand.io']);
