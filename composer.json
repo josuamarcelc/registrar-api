@@ -1,0 +1,22 @@
+{
+    "name": "josuamarcelc/registrar-api",
+    "description": "A unified PHP library for managing domains across multiple registrars (NameSilo, GoDaddy, Namecheap, Dynadot).",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "RegistrarAPI\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Josua Marcel C",
+            "email": "your@email.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
