@@ -3,6 +3,12 @@
   "description": "Unified PHP Registrar API (NameSilo, GoDaddy, Namecheap, Dynadot) with pluggable adapters.",
   "type": "library",
   "license": "MIT",
+  "keywords": ["domain", "registrar", "api", "namesilo", "godaddy", "namecheap", "dynadot"],
+  "homepage": "https://github.com/josuamarcelc/registrar-api",
+  "support": {
+    "issues": "https://github.com/josuamarcelc/registrar-api/issues",
+    "source": "https://github.com/josuamarcelc/registrar-api"
+  },
   "autoload": {
     "psr-4": {
       "RegistrarAPI\\": "src/"
