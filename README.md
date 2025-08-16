@@ -1,124 +1,241 @@
-# Universal PHP Domain Registrar API Client
+# Registrar API
 
-A unified PHP library for managing domains across multiple registrars — currently supporting **NameSilo**, **GoDaddy**, **Namecheap**, and **Dynadot**.  
-Provides a consistent interface for common operations like domain availability checks, registration, renewal, transfer, and DNS record management.  
-Easily extendable via adapter classes to support additional registrars with minimal code changes.
+A unified PHP library for managing domains across multiple registrars with a **single, consistent API**. Current adapters:
 
----
+- NameSilo
+- GoDaddy
+- Namecheap
+- Dynadot
 
-## Features
-
-- **Unified methods** across registrars:
-  - `checkAvailability`
-  - `registerDomain`
-  - `renewDomain`
-  - `transferDomain`
-  - `getDomain`
-  - `getDNS`
-  - `setDNS`
-  - `addDNS`
-  - `delDNS`
-- Normalized, predictable response structure.
-- Built-in HTTP helper (cURL-based).
-- Support for brand-specific raw API calls via `raw($op, $params)`.
-- Easy to extend by adding new registrar adapters.
+> Drop-in architecture: add your own registrar by creating one class in `src/adapters/`.
 
 ---
+
+## Requirements
+- PHP **7.4+** (8.x recommended)
+- cURL extension
+- Composer
 
 ## Installation
 
-Clone the repo or download `RegistrarAPI.php` into your project:
+```bash
+composer require josuamarcelc/registrar-api
+```
+
+If you’re developing locally from the repo, ensure PSR‑4 autoloading is refreshed:
 
 ```bash
-git clone https://github.com/yourusername/registrar-api-php.git
+composer dump-autoload -o
 ```
 
-Then include it in your project:
+## Quick Start
 
 ```php
-require 'RegistrarAPI.php';
-```
+<?php
+require __DIR__ . '/vendor/autoload.php';
 
----
+use RegistrarAPI\RegistrarAPI;
 
-## Usage
-
-### Example: NameSilo
-
-```php
+// Pick your registrar by brand string (case-insensitive):
+// 'namesilo', 'godaddy', 'namecheap', 'dynadot'
 $api = RegistrarAPI::make('namesilo', [
     'api_key' => 'YOUR_NAMESILO_API_KEY'
 ]);
 
-$result = $api->checkAvailability(['example.com', 'mydomain.net']);
+// Check availability for one or more domains
+$result = $api->checkAvailability(['example.com', 'mybrand.io']);
 print_r($result);
+
+// Set nameservers (works the same across all adapters)
+$api->setNameServers('example.com', ['ns1.host.com', 'ns2.host.com']);
 ```
 
-### Example: GoDaddy
+---
 
+## Credentials per Adapter
+
+Each adapter accepts a config array. The keys below are the **minimum** you usually need.
+
+### NameSilo
+```php
+$api = RegistrarAPI::make('namesilo', [
+  'api_key' => 'YOUR_KEY'
+]);
+```
+
+### GoDaddy
 ```php
 $api = RegistrarAPI::make('godaddy', [
-    'api_key'    => 'YOUR_GODADDY_KEY',
-    'api_secret' => 'YOUR_GODADDY_SECRET',
-    // 'base' => 'https://api.ote-godaddy.com/v1' // Sandbox
+  'api_key'    => 'KEY',
+  'api_secret' => 'SECRET',
+  // optional: 'base' => 'https://api.godaddy.com/v1'  // defaults to production
 ]);
+```
 
-print_r($api->registerDomain('example.com', [
-    'years'   => 1,
-    'privacy' => true,
-    'contacts' => [
-        'registrant' => [
-            'nameFirst' => 'John',
-            'nameLast'  => 'Doe',
-            'email'     => 'john@example.com',
-            'phone'     => '+1.1234567890',
-            'addressMailing' => [
-                'address1' => '123 Main St',
-                'city'     => 'City',
-                'state'    => 'ST',
-                'postalCode' => '12345',
-                'country'    => 'US'
-            ]
-        ]
-    ]
-]));
+### Namecheap
+```php
+$api = RegistrarAPI::make('namecheap', [
+  'api_user'  => 'USERNAME',
+  'api_key'   => 'KEY',
+  'client_ip' => 'SERVER_PUBLIC_IP',
+  // optional: 'base' => 'https://api.namecheap.com/xml.response'
+]);
+```
+
+### Dynadot
+```php
+$api = RegistrarAPI::make('dynadot', [
+  'api_key' => 'KEY',
+  // optional: 'base' => 'https://api.dynadot.com/api3.json'
+]);
 ```
 
 ---
 
-## Supported Registrars
+## Common Operations (Unified Shape)
 
-| Registrar | Brand String | Required Credentials |
-|-----------|--------------|----------------------|
-| NameSilo  | `namesilo`   | `api_key` |
-| GoDaddy   | `godaddy`    | `api_key`, `api_secret` or `api_token` |
-| Namecheap | `namecheap`  | `api_user`, `username`, `api_key`, `client_ip` |
-| Dynadot   | `dynadot`    | `api_key` |
+All adapters implement these methods (see `src/Core/BaseAdapter.php`). Return values are normalized as associative arrays so you can handle responses consistently.
+
+```php
+// Availability
+$api->checkAvailability(['example.com']); 
+// -> ['ok'=>bool, 'available'=>[], 'unavailable'=>[], 'invalid'=>[], 'raw'=>mixed]
+
+// Purchase / Lifecycle
+$api->registerDomain('example.com', [
+  'years' => 1,
+  'privacy' => true,
+  'auto_renew' => true,
+  // 'registrant' or adapter-specific contact fields (see adapter docs)
+]);
+
+$api->renewDomain('example.com', 1);   // -> ['ok'=>bool, 'raw'=>mixed]
+$api->transferDomain('example.com', ['auth_code' => 'EPP']); // -> ['ok'=>bool, 'raw'=>mixed]
+$api->getDomain('example.com');        // -> ['ok'=>bool, 'raw'=>mixed]
+
+// DNS Records
+$api->getDNS('example.com');           // -> ['ok'=>bool, 'records'=>[{'type','host','value','ttl','prio'?}], ...]
+
+$api->setDNS('example.com', [
+  ['type'=>'A','host'=>'@','value'=>'203.0.113.10','ttl'=>600],
+  ['type'=>'CNAME','host'=>'www','value'=>'@','ttl'=>600],
+]);
+
+$api->addDNS('example.com', ['type'=>'TXT','host'=>'@','value'=>'v=spf1 -all','ttl'=>300]);
+$api->delDNS('example.com', ['type'=>'TXT','host'=>'@']); // selector varies per adapter
+
+// Nameservers (available for ALL adapters in this library)
+$api->setNameServers('example.com', ['ns1.host.com','ns2.host.com']);
+```
+
+> ⚠️ **Contacts & Required Fields** differ slightly per registrar. The library forwards what you pass; check the registrar’s API docs if a call fails due to missing fields.
 
 ---
 
-## Extending to Other Registrars
+## Adapter‑Specific Examples
 
-1. Create a new adapter:  
-   ```php
-   final class MyRegistrarAdapter extends RegistrarAdapter {
-       protected string $brand = 'myregistrar';
-       // implement all abstract methods
-   }
-   ```
+### NameSilo – Register a domain
+```php
+$api = RegistrarAPI::make('namesilo', ['api_key' => 'KEY']);
+$api->registerDomain('brandnewdomain.com', [
+  'years' => 1,
+  'privacy' => true,
+  'auto_renew' => false,
+  'registrant' => [
+    'first_name' => 'Jane',
+    'last_name'  => 'Doe',
+    'email'      => 'jane@example.com',
+    'phone'      => '+1.5555555555',
+    'address'    => '123 Street',
+    'city'       => 'LA',
+    'state'      => 'CA',
+    'zip'        => '90001',
+    'country'    => 'US'
+  ]
+]);
+```
 
-2. Add it to the factory in `RegistrarAPI::make()`.
+### GoDaddy – DNS update
+```php
+$api = RegistrarAPI::make('godaddy', ['api_key'=>'KEY','api_secret'=>'SECRET']);
+$api->setDNS('example.com', [
+  ['type'=>'A','host'=>'@','value'=>'198.51.100.20','ttl'=>600],
+  ['type'=>'A','host'=>'blog','value'=>'198.51.100.21','ttl'=>600],
+]);
+```
+
+### Namecheap – Set custom nameservers
+```php
+$api = RegistrarAPI::make('namecheap', ['api_user'=>'USER','api_key'=>'KEY','client_ip'=>'203.0.113.22']);
+$api->setNameServers('example.com', ['ns1.customdns.com','ns2.customdns.com']);
+```
+
+### Dynadot – Check and register
+```php
+$api = RegistrarAPI::make('dynadot', ['api_key'=>'KEY']);
+$check = $api->checkAvailability(['mynew.io']);
+if (!empty($check['available'])) {
+  $api->registerDomain('mynew.io', ['years'=>1,'privacy'=>true]);
+}
+```
+
+---
+
+## Raw Passthrough (Escape Hatch)
+
+Need a command the wrapper doesn’t expose yet? Call the adapter directly:
+
+```php
+$gd = RegistrarAPI::make('godaddy', ['api_key'=>'KEY','api_secret'=>'SECRET']);
+$res = $gd->raw('domains/suggestions?query=mybrand&limit=5'); // path relative to GoDaddy base
+print_r($res);
+```
+
+---
+
+## Adding a New Registrar
+
+1. Create a class in `src/adapters/{Brand}.php`:
+```php
+<?php
+namespace RegistrarAPIdapters;
+
+use RegistrarAPI\Core\BaseAdapter;
+
+class MyRegistrar extends BaseAdapter {
+  protected string $brand = 'myregistrar';
+
+  public function checkAvailability(array $domains): array { /* ... */ }
+  public function registerDomain(string $domain, array $opts): array { /* ... */ }
+  public function renewDomain(string $domain, int $years=1, array $opts=[]): array { /* ... */ }
+  public function transferDomain(string $domain, array $opts): array { /* ... */ }
+  public function getDomain(string $domain): array { /* ... */ }
+  public function getDNS(string $domain): array { /* ... */ }
+  public function setDNS(string $domain, array $records): array { /* ... */ }
+  public function addDNS(string $domain, array $record): array { /* ... */ }
+  public function delDNS(string $domain, array $selector): array { /* ... */ }
+  public function setNameServers(string $domain, array $nameservers): array { /* ... */ }
+  public function raw(string $op, array $params=[]): array { /* ... */ }
+}
+```
+2. Composer autoloading will pick it up automatically with:
+```php
+$api = RegistrarAPI::make('myregistrar', [...creds...]);
+```
+
+---
+
+## Error Handling
+
+Every method returns a structure with:
+- `ok` (bool) — quick success check
+- `raw` — original parsed payload (JSON/XML/array)
+- `http` — HTTP status code (when available)
+- `err` — transport‑level error string (if any)
+
+You can also wrap calls in try/catch if you layer exceptions in your project.
 
 ---
 
 ## License
-
-MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-## Disclaimer
-
-- This library is **not** affiliated with or endorsed by NameSilo, GoDaddy, Namecheap, Dynadot, or any other registrar.
-- You are responsible for complying with each registrar’s API terms of service.
-- Use sandbox or test environments before running operations on production domains.
+MIT © josuamarcelc
