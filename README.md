@@ -455,5 +455,8 @@ class MyRegistrar extends BaseAdapter {
 ---
 
 ## License
-MIT ©  [josuamarcelc]: <https://josuamarcelc.com/>
+MIT ©  [josuamarcelc]
+
+
+[josuamarcelc]: <https://josuamarcelc.com/>
 
