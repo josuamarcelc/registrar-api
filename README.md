@@ -452,6 +452,17 @@ class MyRegistrar extends BaseAdapter {
 }
 ```
 
+### Cloudflare Adapter
+
+Manage Cloudflare **zones, DNS, cache**, and **free features** from the same API.
+
+- Create a zone and get assigned nameservers
+- Upsert DNS records (A/AAAA/CNAME/TXT/MX, proxied or not)
+- Purge cache (everything or specific URLs)
+- Toggle free features: Always Use HTTPS, Auto HTTPS Rewrites, Brotli, Minify, Rocket Loader, Dev Mode
+
+➡️ See the full guide: [docs/cloudflare.md](docs/cloudflare.md)
+
 ---
 
 ## License
