@@ -203,7 +203,7 @@ print_r($res);
 1. Create a class in `src/adapters/{Brand}.php`:
 ```php
 <?php
-namespace RegistrarAPIdapters;
+namespace RegistrarAPI/Adapters;
 
 use RegistrarAPI\Core\BaseAdapter;
 
