@@ -6,7 +6,8 @@ Use it to:
 - **Create zones** (add a domain to your Cloudflare account)
 - **Manage DNS** (create/update/delete or upsert)
 - **Purge cache** (everything or specific URLs)
-- **Toggle common free features** (Always Use HTTPS, Auto HTTPS Rewrites, Brotli, Minify, Rocket Loader, Development Mode, etc.)
+- **Toggle common free features** (Always Use HTTPS, Auto HTTPS Rewrites, Brotli, Rocket Loader, Development Mode, etc.)
+- Use the **unified** `getDNS` / `setDNS` / `addDNS` / `delDNS` methods shared with the registrar adapters
 
 > ℹ️ Cloudflare **cannot** change registrar nameservers. After creating a zone, set the returned CF nameservers at your **registrar** (e.g., Namecheap, Dynadot) using their adapters.
 
@@ -15,10 +16,8 @@ Use it to:
 ## Requirements
 
 - PHP 7.4+ (8.x recommended)
-- Guzzle (already required by this project)
+- The `curl` extension (no extra Composer packages)
 - A **Cloudflare API Token** with proper scopes (see below)
-
----
 
 ---
 
@@ -45,7 +44,7 @@ $nc = RegistrarAPI::make('namecheap', [
   'user_name' => getenv('NC_USERNAME'),
   'client_ip' => getenv('NC_CLIENT_IP') // must be whitelisted in Namecheap
 ]);
-$nc->setNameservers('example.com', $cfNS);
+$nc->setNameServers('example.com', $cfNS);
 
 // 4) Manage DNS at Cloudflare
 $cf->ensureDnsRecord($zoneId, 'A',   'example.com', '203.0.113.10', 300, true);
@@ -84,13 +83,13 @@ $nameservers = $zone['name_servers'];
 
 **Namecheap**
 ```php
-$nc->setNameservers('example.com', $nameservers);
+$nc->setNameServers('example.com', $nameservers);
 ```
 
 **Dynadot**
 ```php
 $dd = RegistrarAPI::make('dynadot', ['api_key' => getenv('DYNADOT_API_KEY')]);
-$dd->setNameservers('example.com', $nameservers);
+$dd->setNameServers('example.com', $nameservers);
 ```
 
 Wait for registry propagation. Cloudflare will mark the zone **active** once the NS match.
@@ -124,7 +123,6 @@ $cf->setSetting($zoneId, 'automatic_https_rewrites', 'on');
 $cf->setSetting($zoneId, 'brotli', 'on');
 $cf->setSetting($zoneId, 'rocket_loader', 'off');
 $cf->setSetting($zoneId, 'development_mode', 'on'); // auto-off after ~3h
-$cf->setSetting($zoneId, 'minify', ['css'=>'on','js'=>'on','html'=>'on']);
 $cf->setSetting($zoneId, 'security_level', 'medium');   // off/low/medium/high/under_attack
 $cf->setSetting($zoneId, 'cache_level', 'aggressive');  // basic/simplified/aggressive
 ```
@@ -142,9 +140,26 @@ $cf->setSetting($zoneId, 'cache_level', 'aggressive');  // basic/simplified/aggr
 | `updateDnsRecord(string $zoneId, string $recordId, array $fields): bool` | Update a DNS record (when you already know its ID). |
 | `deleteDnsRecord(string $zoneId, string $recordId): bool` | Delete a DNS record. |
 | `purgeEverything(string $zoneId): bool` | Purge all cache for the zone. |
-| `purgeByUrls(string $zoneId, array $urls): bool` | Purge cache for specific URLs. |
+| `purgeByUrls(string $zoneId, array $urls): bool` | Purge cache for specific URLs (sent in batches of 30). |
 | `setSetting(string $zoneId, string $name, $value): array` | Set one zone setting. |
 | `toggleFreeFeatures(string $zoneId, bool $on=true): void` | Enable/disable a bundle of common free features. |
+
+The zone helpers above return Cloudflare's `result` and throw `RuntimeException` on API errors.
+
+### Unified methods (same as the registrar adapters)
+
+These take the **domain name**, find the zone for you, and return the standard `['ok','raw','http','err']` array instead of throwing.
+
+| Method | Notes |
+|---|---|
+| `getDNS($domain)` | `records` with `type`, `host` (`@`/`www`), `value`, `ttl`, `prio`, `id`, `proxied` |
+| `addDNS($domain, $record)` | `$record` may include `'proxied'=>true`; `ttl` defaults to 1 (automatic) |
+| `setDNS($domain, $records)` | replaces all records except Cloudflare's apex NS |
+| `delDNS($domain, $selector)` | removes every record matching id/type/host/value |
+| `getDomain($domain)` | Cloudflare Registrar details when `account_id` is set, otherwise the zone |
+| `raw($path, ['method'=>..., 'body'=>[...]])` | any `/client/v4/` endpoint |
+
+`checkAvailability`, `registerDomain`, `renewDomain`, `transferDomain` and `setNameServers` return `ok=false, unsupported=true`: Cloudflare Registrar does not offer them in its public API.
 
 ---
 
@@ -171,10 +186,10 @@ export CF_ACCOUNT_ID=yyyyyyyyyyyyyyyy
   Registrar nameservers must match the **exact** CF nameservers returned by `createZone()`; wait for WHOIS/registry propagation.
 
 - **Settings not applied**  
-  Some toggles are plan-limited. The helper only toggles features available on the **Free** plan.
+  Some toggles are plan-limited. The helper only toggles features available on the **Free** plan. Auto Minify (`minify`) was retired by Cloudflare in August 2024 and is no longer toggled.
 
 - **Record name confusion**  
-  Use `name='www'` for a sub of the zone, or `name='sub.example.com'` for a full host. Root uses the zone name (e.g., `example.com`).
+  `ensureDnsRecord()` accepts `'@'`, `'www'` or a full host (`'sub.example.com'`) and expands relative names to the zone, so repeated calls update the same record instead of creating duplicates.
 
 ---
 

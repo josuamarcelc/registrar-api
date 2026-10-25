@@ -1,9 +1,19 @@
 {
   "name": "josuamarcelc/registrar-api",
-  "description": "Unified PHP Registrar API (NameSilo, GoDaddy, Namecheap, Dynadot) with pluggable adapters.",
+  "description": "Unified PHP Registrar API (NameSilo, GoDaddy, Namecheap, Dynadot, Cloudflare) with pluggable adapters.",
   "type": "library",
   "license": "MIT",
-  "keywords": ["domain", "registrar", "api", "namesilo", "godaddy", "namecheap", "dynadot"],
+  "keywords": [
+    "domain",
+    "registrar",
+    "api",
+    "dns",
+    "namesilo",
+    "godaddy",
+    "namecheap",
+    "dynadot",
+    "cloudflare"
+  ],
   "homepage": "https://github.com/josuamarcelc/registrar-api",
   "support": {
     "issues": "https://github.com/josuamarcelc/registrar-api/issues",
@@ -22,8 +32,15 @@
     }
   ],
   "require": {
-    "php": ">=7.4"
+    "php": ">=7.4",
+    "ext-curl": "*",
+    "ext-json": "*",
+    "ext-libxml": "*",
+    "ext-simplexml": "*"
   },
   "minimum-stability": "stable",
-  "prefer-stable": true
+  "prefer-stable": true,
+  "scripts": {
+    "test": "php tests/run.php"
+  }
 }
